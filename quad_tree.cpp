@@ -10,7 +10,7 @@ using namespace std;
 
 struct Point {
   int x, y;
-  const char * toString() {
+  string toString() {
     stringstream ss;
     string r = "";
     r += "(";
@@ -21,7 +21,7 @@ struct Point {
     sss << this->y;
     r += sss.str();
     r += ")";
-    return r.c_str();
+    return r;
   }
   Point(int x, int y) {
     this->x = x;
@@ -33,43 +33,194 @@ struct Point {
   }
 };
 
-struct Line {
-  Point p0, p1;
-  bool dir;
-  const char * toString() {
-    string r = "";
-    r += this->p0.toString();
-    r += this->p1.toString();
-    return r.c_str();
-  }
-  Line(Point p2, Point p3) {
-    this->p0 = p0;
-    this->p1 = p1;
-  }
-  Line() {
-    this->p0 = Point();
-    this->p1 = Point();
-  }
+class Line {
+  public:
+    bool dir;
+    Point p0, p1;
+    const char * toString();
+    Line(Point p2, Point p3);
+    Line();
+    bool in_range(int x);
+    bool intersects(Line l);
 };
+
+const char * Line::toString() {
+  string r = this->p0.toString();
+  r += this->p1.toString();
+  return r.c_str();
+}
+
+
+Line::Line(Point p2, Point p3) {
+  this->p0 = p0;
+  this->p1 = p1;
+}
+Line::Line() {
+  this->p0 = Point();
+  this->p1 = Point();
+}
+// Does the number x fall in the range for which this line varies
+bool Line::in_range(int x) {
+  if (this->dir) {
+    return x >= this->p0.y && x <= this->p1.y;
+  } else {
+    return x >= this->p0.x && x <= this->p1.x;
+  }
+}
+// Does this line intersect line l
+bool Line::intersects(Line l) {
+  if (this->dir && l.dir) {
+    // Parallel, vertical
+    if (this->p0.x == l.p0.x) {
+      // Same x coordinate
+      if (this->in_range(l.p0.y) || this->in_range(l.p1.y) || l.in_range(this->p0.y) || l.in_range(this->p1.y)) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else if (!this->dir && !l.dir) {
+    // Parallel, horizontal
+    if (this->p0.y == l.p0.y) {
+      // Same y coordinate
+      if (this->in_range(l.p0.x) || this->in_range(l.p1.x) || l.in_range(this->p0.x) || l.in_range(this->p1.x)) {
+        return true;
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  } else {
+    // Perpendicular
+    if (this->dir) {
+      return this->in_range(l.p0.y) && l.in_range(this->p0.x);
+    } else {
+      return this->in_range(l.p0.x) && l.in_range(this->p0.y);
+    }
+  }
+}
+
+class Collision {
+  Line * l1;
+  Line * l2;
+
+  public:
+    Collision(Line * l1, Line * l2);
+    void print();
+    const char* toString();
+};
+
+Collision::Collision(Line * l1, Line * l2) {
+  this->l1 = l1;
+  this->l2 = l2;
+}
+
+void Collision::print() {
+  cout << "Collision: " << this->l1->toString() << " " << this->l2->toString() << '\n';
+}
+
+const char* Collision::toString() {
+  this->print();
+  string r = "Collision: ";
+  r.append(this->l1->toString());
+  r.append(this->l2->toString());
+  return r.c_str();
+}
 
 class TreeNode {
   Point lower_left;
   int range;
   vector<Line *> lines;
+  TreeNode * parent;
   TreeNode * children[4]; // ll, ul, lr, ur
+  bool has_children;
   public:
-    TreeNode(Point lower_left, int range);
+    TreeNode(TreeNode * parent, Point lower_left, int range);
     int point_in_child(Point p);
     int line_in_child(Line l);
     void create_children(int granularity);
     void add_line(Line * l);
     int size();
+    void print();
+    void print_tree();
+    void detect_collisions(vector<Collision> * collisions);
+    void detect_internal_collisions(vector<Collision> * collisions);
+    void detect_parent_collisions(vector<Collision> * collisions);
+    void recursively_detect_collisions(vector<Collision> * collisions);
 };
 
-TreeNode::TreeNode(Point lower_left, int range) {
+void TreeNode::detect_internal_collisions(vector<Collision> * collisions) {
+  if (this->size() > 1) {
+    vector<Line *>::iterator it1;
+    vector<Line *>::iterator it2;
+    for (it1 = this->lines.begin(); it1 != this->lines.end(); it1++) {
+      for (it2 = it1+1; it2 != this->lines.end(); it2++) {
+        if ((*it1)->intersects(**it2)) {
+          Collision col = Collision(*it1, *it2);
+          collisions->push_back(col);
+        }
+      }
+    }
+  }
+}
+
+void TreeNode::detect_parent_collisions(vector<Collision> * collisions) {
+  TreeNode * ancestor = this;
+  while (ancestor->parent) {
+    ancestor = ancestor->parent;
+    if (ancestor->size() > 0) {
+      vector<Line *>::iterator it1;
+      vector<Line *>::iterator it2;
+      for (it1 = this->lines.begin(); it1 != this->lines.end(); it1++) {
+        for (it2 = ancestor->lines.begin(); it2 != ancestor->lines.end(); it2++) {
+          if ((*it1)->intersects(**it2)) {
+            Collision col = Collision(*it1, *it2);
+            collisions->push_back(col);
+          }
+        }
+      }
+    }
+  }
+}
+
+void TreeNode::recursively_detect_collisions(vector<Collision> * collisions) {
+    this->detect_internal_collisions(collisions);
+    this->detect_parent_collisions(collisions);
+    if (this->has_children) {
+      for (int i = 0; i < 4; i++) {
+        this->children[i]->recursively_detect_collisions(collisions);
+      }
+    }
+  }
+
+void TreeNode::print() {
+  cout << "Treenode rooted at " << this->lower_left.
+  toString() << " with range " << this->range << " has " << this->size() << " lines\n";
+  if (this->has_children) {
+    for (int i = 0; i < 4; i++) {
+      cout << "Child rooted at " << this->children[i]->lower_left.toString() << " with range " << this->children[i]->range << " has " << this->children[i]->size() << " lines\n";
+    }
+  }
+  cout << '\n'; 
+}
+
+void TreeNode::print_tree() {
+  this->print();
+  for (int i = 0; i < 4; i++) {
+    if (this->children[i]->has_children) {
+      this->children[i]->print_tree();
+    }
+  }
+}
+
+TreeNode::TreeNode(TreeNode* parent, Point lower_left, int range) {
   this->lower_left = lower_left;
   this->range = range;
-  //cout << "Creating treenode rooted at " << this->lower_left.toString() << " with range " << this->range << '\n';
+  this->has_children = false;
+  this->parent = parent;
 }
 
 int TreeNode::size() {
@@ -84,7 +235,6 @@ int TreeNode::point_in_child(Point p) {
   if (p.y > (this->lower_left.y + (this->range / 2))) {
     r |= 0x2;
   }
-  //cout << "Point " << p.toString() << "is in child " << r << " of node rooted at " << this->lower_left.toString() << '\n';
   return r;
 }
 
@@ -92,49 +242,54 @@ int TreeNode::line_in_child(Line l) {
   int c0 = this->point_in_child(l.p0);
   int c1 = this->point_in_child(l.p1);
   if (c0 == c1) {
-    //cout << "Line " << l.toString() << "is in child " << c0 << " of node rooted at " << this->lower_left.toString() << '\n';
     return c0;
   } else {
-    //cout << "Line " << l.toString() << "is not in any child of node rooted at " << this->lower_left.toString() << '\n';
     return -1;
   }
 }
 
 void TreeNode::add_line(Line * l) {
-  lines.push_back(l);
+  this->lines.push_back(l);
 }
 
 void TreeNode::create_children(int granularity) {
-  //cout << "Running create children on node that has " << this->size() << "lines\n";
-  cout << "Child rooted at " << this->lower_left.toString() << " with range " << this->range << "has " << this->size() << " lines \n";
 
   if (this->lines.size() > granularity && this->range > granularity) {
     Point p = Point(this->lower_left.x, this->lower_left.y);
-    this->children[0] = new TreeNode(p, this->range / 2);
+    this->children[0] = new TreeNode(this, p, this->range / 2);
 
     p = Point(this->lower_left.x + this->range / 2, this->lower_left.y);
-    this->children[1] = new TreeNode(p, this->range / 2);
+    this->children[1] = new TreeNode(this, p, this->range / 2);
 
     p = Point(this->lower_left.x, this->lower_left.y + this->range / 2);
-    this->children[2] = new TreeNode(p, this->range / 2);
+    this->children[2] = new TreeNode(this, p, this->range / 2);
 
     p = Point(this->lower_left.x + this->range / 2, this->lower_left.y + this->range / 2);
-    this->children[3] = new TreeNode(p, this->range / 2);
+    this->children[3] = new TreeNode(this, p, this->range / 2);
 
     vector<Line *>::iterator it1;
+    vector<Line *> unclassified_lines;
     for (it1 = this->lines.begin(); it1 != this->lines.end(); it1++) {
       Line * l = *it1;
       int child = this->line_in_child(*l);
       if (child >= 0) {
         this->children[child]->add_line(l);
+      } else {
+        unclassified_lines.push_back(l);
       }
     }
-    for (int i = 0; i < 4; i++) {
-      this->children[i]->create_children(granularity);
-      //cout << "Child rooted at " << this->lower_left.toString() << "has " << this->children[i]->size() << " lines \n";
+    if (this->lines.size() != unclassified_lines.size()) {
+      this->has_children = true;
+    }
+    this->lines = unclassified_lines;
+    if (this->has_children) {
+      for (int i = 0; i < 4; i++) {
+        this->children[i]->create_children(granularity);
+      }
     }
   } 
 }
+
 
 class QuadTree {
   TreeNode * root;
@@ -144,7 +299,17 @@ class QuadTree {
     QuadTree(const char * input_file, int window_size, int granularity);
     static Line parse_line(string line_str);
     void generate_tree();
+    void detect_collisions(vector<Collision> * collisions);
+    void print_tree();
 };
+
+void QuadTree::print_tree() {
+  this->root->print_tree();
+}
+
+void QuadTree::detect_collisions(vector<Collision> * collisions) {
+  this->root->recursively_detect_collisions(collisions);
+}
 
 /*
 Takes strings of the form "(X0,Y0), (X1,Y1), (dir)" and turns them into lines
@@ -169,9 +334,9 @@ Line QuadTree::parse_line(string line_str) {
   len = line_str.find(')', begin) - begin;
   line_data.p1.y = atoi(line_str.substr(begin, len).c_str());
 
-  begin = line_str.find('(', 2) + 1;
-  len = line_str.find(')', 2) - begin;
-  line_data.dir = atoi(line_str.substr(begin, len).c_str()) > 0;
+  begin = line_str.find('(', begin + len) + 1;
+  len = line_str.find(')', begin) - begin;
+  line_data.dir = (atoi(line_str.substr(begin, len).c_str()) > 0);
 
   return line_data;
 }
@@ -182,14 +347,14 @@ QuadTree::QuadTree(const char * input_file, int window_size, int granularity) {
   ifstream input;
   string line_str;
   input.open(input_file);
-  
+   
   if (input.is_open()) {
     getline(input, line_str);
     this->input_size = atoi(line_str.c_str());
     this->input = (Line *)(malloc(this->input_size * sizeof(Line)));
     for (int i = 0; i < this->input_size; i ++) {
       getline(input, line_str);
-      this->input[i] = parse_line(line_str);
+      this->input[i] = this->parse_line(line_str);
     }
     input.close();
    }
@@ -198,28 +363,17 @@ QuadTree::QuadTree(const char * input_file, int window_size, int granularity) {
 
 void QuadTree::generate_tree() {
   Point ll = Point(0, 0);
-  TreeNode root = TreeNode(ll, this->window_size);
+  this->root = new TreeNode(NULL, ll, this->window_size);
   for (int i = 0; i < this->input_size; i++) {
-    root.add_line(&this->input[i]);
+    this->root->add_line(&this->input[i]);
   }
-  cout << "Root has " << root.size() << "lines\n";
-  root.create_children(this->granularity);
+  this->root->create_children(this->granularity);
 }
 
-
-/*
-void quadtree(int** input, int input_size, int top, int left, int window_size):
-  int
-  for (int i < input_size; i++) {
-    if *input[i]
-  quadtree(top, left, size / 2);
-  quadtree(top, left + size / 2, size / 2);
-  quadtree(top + size / 2, left, size / 2);
-  quadtree(top + size / 2, left + size / 2, size / 2);
-*/
-
-
 int main() {
-  QuadTree qtree = QuadTree("test_data.txt", 1000000, 100);
+  vector<Collision> collisions;
+  QuadTree qtree = QuadTree("test_data.txt", 1000, 100);
   qtree.generate_tree();
+  qtree.print_tree();
+  qtree.detect_collisions(&collisions);
 }
