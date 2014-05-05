@@ -127,7 +127,8 @@ void TreeNode::create_children(int granularity) {
       int child = this->line_in_child(*l);
       if (child >= 0) {
         this->children[child]->add_line(l);
-      }
+      } else {
+        cout << "Line " << *l.toString() << " doesn't fit in any children of node rooted at " << this->lower_left.toString() << " with range " << this->range << '\n';
     }
     for (int i = 0; i < 4; i++) {
       this->children[i]->create_children(granularity);
