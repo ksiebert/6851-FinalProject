@@ -4,9 +4,11 @@
 #include <string>
 #include <sstream>
 #include <fstream>  
+#include <vector>
+
 using namespace std;
 
-struct point {
+struct Point {
   int x, y;
   const char * toString() {
     stringstream ss;
@@ -21,10 +23,18 @@ struct point {
     r += ")";
     return r.c_str();
   }
+  Point(int x, int y) {
+    this->x = x;
+    this->y = y;
+  }
+  Point() {
+    this->x = -1;
+    this->y = -1;
+  }
 };
 
-struct line {
-  point p0, p1;
+struct Line {
+  Point p0, p1;
   bool dir;
   const char * toString() {
     string r = "";
@@ -32,50 +42,115 @@ struct line {
     r += this->p1.toString();
     return r.c_str();
   }
+  Line(Point p2, Point p3) {
+    this->p0 = p0;
+    this->p1 = p1;
+  }
+  Line() {
+    this->p0 = Point();
+    this->p1 = Point();
+  }
 };
 
 class TreeNode {
-  point lower_left;
+  Point lower_left;
   int range;
-  line ** node_lines;
+  vector<Line *> lines;
   TreeNode * children[4]; // ll, ul, lr, ur
   public:
-    TreeNode(point lower_left, int range, line ** node_lines);
-    int point_in_child(point p);
-    int line_in_child(line l);
+    TreeNode(Point lower_left, int range);
+    int point_in_child(Point p);
+    int line_in_child(Line l);
+    void create_children(int granularity);
+    void add_line(Line * l);
+    int size();
 };
 
-int TreeNode::point_in_child(point p) {
+TreeNode::TreeNode(Point lower_left, int range) {
+  this->lower_left = lower_left;
+  this->range = range;
+  //cout << "Creating treenode rooted at " << this->lower_left.toString() << " with range " << this->range << '\n';
+}
+
+int TreeNode::size() {
+  return this->lines.size();
+}
+
+int TreeNode::point_in_child(Point p) {
   int r = 0;
-  if (p.x > this->lower_left.x + (range / 2)) r = r & 0x1; 
-  if (p.y > this->lower_left.y + (range / 2)) r = r & 0x2;
+  if (p.x > (this->lower_left.x + (this->range / 2))) {
+    r |= 0x1; 
+  }
+  if (p.y > (this->lower_left.y + (this->range / 2))) {
+    r |= 0x2;
+  }
+  //cout << "Point " << p.toString() << "is in child " << r << " of node rooted at " << this->lower_left.toString() << '\n';
   return r;
 }
 
-int TreeNode::line_in_child(line l) {
+int TreeNode::line_in_child(Line l) {
   int c0 = this->point_in_child(l.p0);
   int c1 = this->point_in_child(l.p1);
-  if (c0 == c1) return -1;
-  else return c0;
+  if (c0 == c1) {
+    //cout << "Line " << l.toString() << "is in child " << c0 << " of node rooted at " << this->lower_left.toString() << '\n';
+    return c0;
+  } else {
+    //cout << "Line " << l.toString() << "is not in any child of node rooted at " << this->lower_left.toString() << '\n';
+    return -1;
+  }
+}
+
+void TreeNode::add_line(Line * l) {
+  lines.push_back(l);
+}
+
+void TreeNode::create_children(int granularity) {
+  //cout << "Running create children on node that has " << this->size() << "lines\n";
+  cout << "Child rooted at " << this->lower_left.toString() << " with range " << this->range << "has " << this->size() << " lines \n";
+
+  if (this->lines.size() > granularity && this->range > granularity) {
+    Point p = Point(this->lower_left.x, this->lower_left.y);
+    this->children[0] = new TreeNode(p, this->range / 2);
+
+    p = Point(this->lower_left.x + this->range / 2, this->lower_left.y);
+    this->children[1] = new TreeNode(p, this->range / 2);
+
+    p = Point(this->lower_left.x, this->lower_left.y + this->range / 2);
+    this->children[2] = new TreeNode(p, this->range / 2);
+
+    p = Point(this->lower_left.x + this->range / 2, this->lower_left.y + this->range / 2);
+    this->children[3] = new TreeNode(p, this->range / 2);
+
+    vector<Line *>::iterator it1;
+    for (it1 = this->lines.begin(); it1 != this->lines.end(); it1++) {
+      Line * l = *it1;
+      int child = this->line_in_child(*l);
+      if (child >= 0) {
+        this->children[child]->add_line(l);
+      }
+    }
+    for (int i = 0; i < 4; i++) {
+      this->children[i]->create_children(granularity);
+      //cout << "Child rooted at " << this->lower_left.toString() << "has " << this->children[i]->size() << " lines \n";
+    }
+  } 
 }
 
 class QuadTree {
   TreeNode * root;
   int input_size, window_size, granularity;
-  line * input;
+  Line * input;
   public:
     QuadTree(const char * input_file, int window_size, int granularity);
-    static line parse_line(string line_str);
-  private:
+    static Line parse_line(string line_str);
     void generate_tree();
-    void _generate_tree();
 };
 
 /*
 Takes strings of the form "(X0,Y0), (X1,Y1), (dir)" and turns them into lines
 */
-line QuadTree::parse_line(string line_str) {
-  line line_data;
+Line QuadTree::parse_line(string line_str) {
+  Line line_data = Line();
   int begin, len;
 
   begin = line_str.find('(', 0) + 1;
@@ -111,7 +186,7 @@ QuadTree::QuadTree(const char * input_file, int window_size, int granularity) {
   if (input.is_open()) {
     getline(input, line_str);
     this->input_size = atoi(line_str.c_str());
-    this->input = (line *)(malloc(this->input_size * sizeof(line)));
+    this->input = (Line *)(malloc(this->input_size * sizeof(Line)));
     for (int i = 0; i < this->input_size; i ++) {
       getline(input, line_str);
       this->input[i] = parse_line(line_str);
@@ -122,18 +197,15 @@ QuadTree::QuadTree(const char * input_file, int window_size, int granularity) {
   
 
 void QuadTree::generate_tree() {
-  /*
-  Point ll;
-  ll.x, ll.y = 0;
-  TreeNode root = TreeNode(ll, this->window_size, this->input);
-  */
+  Point ll = Point(0, 0);
+  TreeNode root = TreeNode(ll, this->window_size);
+  for (int i = 0; i < this->input_size; i++) {
+    root.add_line(&this->input[i]);
+  }
+  cout << "Root has " << root.size() << "lines\n";
+  root.create_children(this->granularity);
 }
 
-/*
-Helper function for recursively generating a tree
-*/ 
-void _generate_tree() {
-}
 
 /*
 void quadtree(int** input, int input_size, int top, int left, int window_size):
@@ -148,5 +220,6 @@ void quadtree(int** input, int input_size, int top, int left, int window_size):
 
 
 int main() {
-  QuadTree qtree = QuadTree("test_data.txt", 1000000, 1000);
+  QuadTree qtree = QuadTree("test_data.txt", 1000000, 100);
+  qtree.generate_tree();
 }
