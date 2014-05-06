@@ -143,6 +143,7 @@ class TreeNode {
     void add_line(Line * l);
     int size();
     void print();
+    void print_lines();
     void print_tree();
     void detect_collisions(vector<Collision> * collisions);
     void detect_internal_collisions(vector<Collision> * collisions);
@@ -251,7 +252,6 @@ void TreeNode::add_line(Line * l) {
 }
 
 void TreeNode::create_children(int granularity) {
-
   if (this->lines.size() > granularity && this->range > granularity) {
     Point p = Point(this->lower_left.x, this->lower_left.y);
     this->children[0] = new TreeNode(this, p, this->range / 2);
@@ -306,6 +306,7 @@ class QuadTree {
     void write_collisions_to_file();
     void write_output_to_file();
     void write_data_to_file();
+    void print_root_lines();
 };
 
 void QuadTree::print_tree() {
@@ -384,6 +385,16 @@ Line QuadTree::parse_line(string line_str) {
   return line_data;
 }
 
+void TreeNode::print_lines() {
+  vector<Line *>::iterator it;
+  for (it = this->lines.begin(); it != this->lines.end(); it++) { 
+    cout << (*it)->toString() << '\n';
+  }
+}
+
+void QuadTree::print_root_lines() {
+  this->root->print_lines();
+}
 QuadTree::QuadTree(string input_file, int window_size, int granularity) {
   this->window_size = window_size;
   this->granularity = granularity;
@@ -391,7 +402,6 @@ QuadTree::QuadTree(string input_file, int window_size, int granularity) {
   ifstream input;
   string line_str;
   input.open(input_file.c_str());
-   
   if (input.is_open()) {
     getline(input, line_str);
     this->input_size = atoi(line_str.c_str());
@@ -422,15 +432,18 @@ vector<string> listInputFiles(){
     while((entry = readdir(pDIR))){
       string fn = "data/input/";
       if(strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0 )
-        fn.append(entry->d_name);
-        files.push_back(fn);
+        if (entry->d_name[0]) {
+          fn.append(entry->d_name);
+          files.push_back(fn);
+        }
     }
     closedir(pDIR);
   }
   return files;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  /*
   vector<string> files = listInputFiles();
   vector<string>::iterator it;
   for (it = files.begin(); it != files.end(); it++) { 
@@ -439,4 +452,9 @@ int main() {
     qtree.detect_collisions();
     qtree.write_output_to_file();
   }
+  */
+  QuadTree qtree = QuadTree(argv[1], 1000, 100);
+  qtree.generate_tree();
+    qtree.detect_collisions();
+    qtree.write_output_to_file();
 }
