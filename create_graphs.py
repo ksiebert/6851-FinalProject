@@ -35,12 +35,12 @@ def create_plots():
     qt_input_size.append(int(qt_data[1]))
     qt_collision_size.append(int(qt_data[2]))
     qt_runtime.append(float(qt_data[3]))
-    qt_wr_refs.append(int(qt_data[4]))
-    qt_rd_refs.append(int(qt_data[5]))
-    qt_wr_cm_d1.append(int(qt_data[6]))
-    qt_rd_cm_d1.append(int(qt_data[7]))
-    qt_wr_cm_ll.append(int(qt_data[8]))
-    qt_rd_cm_ll.append(int(qt_data[9]))
+    qt_rd_refs.append(int(qt_data[4]))
+    qt_rd_cm_d1.append(int(qt_data[5]))
+    qt_rd_cm_ll.append(int(qt_data[6]))
+    qt_wr_refs.append(int(qt_data[7]))
+    qt_wr_cm_d1.append(int(qt_data[8]))
+    qt_wr_cm_ll.append(int(qt_data[9]))
 
   # Plot runtime vs input size
   plt.scatter(qt_input_size, qt_runtime, c='red', s=50)
@@ -56,6 +56,14 @@ def create_plots():
 
   # Plot cache misses (reads) vs refs
   plt.scatter(qt_rd_refs, qt_rd_cm_d1)
+  plt.show()
+
+  # Plot cache misses (reads) vs input size
+  plt.scatter(qt_input_size, qt_rd_cm_d1)
+  plt.show()
+
+  # Plot cache misses (reads) vs input size
+  plt.scatter(qt_input_size, qt_wr_cm_d1)
   plt.show()
 
 create_plots()

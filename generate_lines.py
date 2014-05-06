@@ -23,5 +23,5 @@ def generate_random_data(file_name, size, min_length, max_length, window):
       x1 = x0 + length
     print >> f, "(" + str(x0) + "," + str(y0) + "),(" + str(x1) + "," + str(y1) + ")" + "(" + str(direction) + ")"
 
-for i in range(10, 20):
-  generate_random_data('data/input/test_data' + str(i), 100*i, 5, 100, 1000)
+for i in range(1, 20):
+  generate_random_data('data/input/test_data' + str(i), 1000*i, 5, 100, 10000)
