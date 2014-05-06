@@ -106,6 +106,8 @@ class Plane {
 	Line * hLines;
 	int hLineCount;
 	vector<Collision> collisions;
+	double sort_time;
+	
 	public:
 		Plane(string input_file);
 		void parseLine(string line_str);
@@ -117,6 +119,8 @@ class Plane {
 		int partition(Line *input, int p, int r);
 };
 
+// Initialize plane to store all points in place
+// Store the lines in the vertical or horizontal list depending on line
 Plane::Plane(string input_file) {
 	this->vLineCount = 0;
 	this->hLineCount = 0;
@@ -124,6 +128,7 @@ Plane::Plane(string input_file) {
   	string line_str;
   	input.open(input_file.c_str());
    
+    // Read in input file
   	if (input.is_open()) {
     	getline(input, line_str);
     	int input_size = atoi(line_str.c_str());
@@ -143,6 +148,8 @@ Plane::Plane(string input_file) {
 
 }
 
+// Parses out line information from input file
+// Places line in vertical or horizontal line list
 void Plane::parseLine(string line_str) {
 	Line line = Line();
 	int begin, len, x, y;
@@ -181,10 +188,16 @@ void Plane::parseLine(string line_str) {
 	}
 }
 
+// Sorts both the vertical and horizontal in an increasing order of y value of first point in line
 void Plane::sortLinesY() {
+	clock_t start;
+  	double duration;  
+  	start = clock();       
 	this->quicksort(this->vLines, 0, this->vLineCount);
 	this->quicksort(this->hLines, 0, this->hLineCount);
 
+	// Log time to sort
+	this->sort_time = (clock() - start ) / (double) CLOCKS_PER_SEC;
 }
 
 /*
