@@ -10,9 +10,6 @@
 
 using namespace std;
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////           Point Class             /////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////
 class Point {
 	int x, y;
 	public:
@@ -20,7 +17,58 @@ class Point {
 		Point();
 		void toString();
 		int getY();
+		int getX();
 };
+
+class Line {
+	Point p1; 
+	Point p2;
+	int dir;
+	public:
+		Line(Point p1, Point p2);
+		Line();
+		void toString();
+		void setDirection(int dir);
+		Point* getP1();
+		Point* getP2();
+		int getDir();
+		bool intersect(Line line2);
+};
+
+class Collision {
+  	Line *l1;
+  	Line *l2;
+
+  	public:
+   		Collision(Line l1, Line l2);
+   		Collision();
+};
+
+
+
+
+Line parseLine(string line_str);
+void quicksortX(Line* input, int p, int r);
+int partitionX(Line* input, int p, int r);
+void quicksortY(Line* input, int p, int r);
+int partitionY(Line* input, int p, int r);
+void distributionSweep(vector<Line*> lines, vector<Collision> * collisions, int basecase, int previousSize);
+bool xComparison(Line l1, Line l2);
+bool yComparison(Line l1, Line l2);
+
+bool yComparison(Line l1, Line l2) {
+	return l1.getP1()->getY() < l2.getP1()->getY();
+}
+bool xComparison(Line l1, Line l2) {
+	return l1.getP1()->getX() < l2.getP1()->getX();
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////           Point Class             /////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////
+
 
 Point::Point(int x, int y) {
 	this->x = x;
@@ -36,6 +84,10 @@ int Point::getY() {
 	return this->y;
 }
 
+int Point::getX() {
+	return this->x;
+}
+
 
 void Point::toString() {
 	cout << "(" << this->x << ", " << this->y << ")";
@@ -44,18 +96,7 @@ void Point::toString() {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////            Line Class             /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-class Line {
-	Point p1; 
-	Point p2;
-	bool dir;
-	public:
-		Line(Point p1, Point p2);
-		Line();
-		void toString();
-		void setDirection(bool dir);
-		int getY1();
-		int getY2();
-};
+
 
 Line::Line(Point p1, Point p2) {
 	this->p1 = p1;
@@ -67,15 +108,15 @@ Line::Line() {
 	this->p2 = Point();
 }
 
-int Line::getY1() {
-	return this->p1.getY();
+Point* Line::getP1() {
+	return &(this->p1);
 }
 
-int Line::getY2() {
-	return this->p2.getY();
+Point* Line::getP2() {
+	return &(this->p2);
 }
 
-void Line::setDirection(bool dir) {
+void Line::setDirection(int dir) {
 	this->dir = dir;
 }
 
@@ -87,83 +128,63 @@ void Line::toString() {
 	cout << "}\n";
 }
 
+int Line::getDir() {
+	return this->dir;
+}
+bool Line::intersect(Line l) {
+	int p1x = this->p1.getX();
+	int p1y = this->p1.getY();
+	int p2x = this->p2.getX();
+	int p2y = this->p2.getY();
+	int p3x = l.getP1()->getX();
+	int p3y = l.getP1()->getY();
+	int p4x = l.getP2()->getX();
+	int p4y = l.getP2()->getY();
+	if (this->dir && l.getDir()) {
+	    // Parallel, vertical
+	    if (p1x == p3x) {
+		    // Same x coordinate
+			return (p1y >= p3y && p1y <= p4y) || (p2y >= p3y && p2y <= p4y);
+		} else {
+			return false;
+		}
+  	} else if (!this->dir && !l.getDir()) {
+    	// Parallel, horizontal
+    	if (p1y == p3y) {
+      		// Same y coordinate
+      		return (p1x >= p3x && p1x <= p4x) || (p2x >= p3x && p2x <= p4x);
+    	} else {
+      		return false;
+    	}
+  	} else {
+    	// Perpendicular
+    	if (this->dir) {
+      		return p1x >= p3x && p1x <= p4x && p3y >= p1y && p3y <= p2y;
+    	} else {
+      		return p1y >= p3y && p1y <= p4y && p3x >= p1x && p3x <= p2x;
+    	}
+  	}
+}
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////        Collision Class            /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-class Collision {
-  	Line * l1;
-  	Line * l2;
+Collision::Collision(Line l1, Line l2) {
+  	this->l1 = &l1;
+  	this->l2 = &l2;
+}
 
-  	public:
-   		Collision(Line * l1, Line * l2);
-};
-
-Collision::Collision(Line * l1, Line * l2) {
-  	this->l1 = l1;
-  	this->l2 = l2;
+Collision::Collision() {
+	this->l1 = NULL;
+	this->l2 = NULL;
 }
 
 
 
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////           Plane Class             /////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////////////////////////////
-// Plane class
-// stores all of the line segments that appear in the plane
-// stores line segments in two lists, horizontal and vertical line segments
-// Uses Distribution sweeping to find intersections between line segments
-class Plane {
-	Line * vLines;
-	int vLineCount;
-	Line * hLines;
-	int hLineCount;
-	vector<Collision> collisions;
-	double sort_time;
-	
-	public:
-		Plane(string input_file);
-		void parseLine(string line_str);
-		vector<Collision> distributionSweep();
-		void detectCollisions();
-		void writeCollisionsToFile();
-		void sortLinesY();
-		void quicksort(Line *input, int p, int r);
-		int partition(Line *input, int p, int r);
-};
-
-// Initialize plane to store all points in place
-// Store the lines in the vertical or horizontal list depending on line
-Plane::Plane(string input_file) {
-	this->vLineCount = 0;
-	this->hLineCount = 0;
-	ifstream input;
-  	string line_str;
-  	input.open(input_file.c_str());
-   
-    // Read in input file
-  	if (input.is_open()) {
-    	getline(input, line_str);
-    	int input_size = atoi(line_str.c_str());
-    	this->vLines = (Line *)(malloc(input_size * sizeof(Line)));
-    	this->hLines = (Line *)(malloc(input_size * sizeof(Line)));
-    	cout << "Input Size: " << input_size;
-    	for (int i = 0; i < input_size; i ++) {
-      		getline(input, line_str);
-      		this->parseLine(line_str);
-    	}
-    	input.close();
-
-    	// Reallocate memory for vertical and horizontal lines
-    	this->vLines = (Line *)realloc(this->vLines, sizeof(Line) * this->vLineCount);
-    	this->hLines = (Line *)realloc(this->hLines, sizeof(Line) * this->hLineCount);
-   	}
-
-}
 
 // Parses out line information from input file
 // Places line in vertical or horizontal line list
-void Plane::parseLine(string line_str) {
+Line parseLine(string line_str) {
 	Line line = Line();
 	int begin, len, x, y;
 	Point p1, p2;
@@ -191,61 +212,39 @@ void Plane::parseLine(string line_str) {
 
 	begin = line_str.find('(', begin + len) + 1;
 	len = line_str.find(')', begin) - begin;
-
-	if (atoi(line_str.substr(begin, len).c_str()) > 0) {
-		this->vLines[vLineCount] = line;
-		this->vLineCount++;
-	} else {
-		this->hLines[hLineCount] = line;
-		this->hLineCount++;
-	}
-}
-
-// Sorts both the vertical and horizontal in an increasing order of y value of first point in line
-void Plane::sortLinesY() {
-	clock_t start;
-  	double duration;  
-  	start = clock();       
-	this->quicksort(this->vLines, 0, this->vLineCount);
-	this->quicksort(this->hLines, 0, this->hLineCount);
-
-	// Log time to sort
-	this->sort_time = (clock() - start ) / (double) CLOCKS_PER_SEC;
-}
-
-
-// Recursive function implementing distribution sweeping
-vector<Collision> Plane::distributionSweep() {
-	vector<Collision> out;
-	return out;
-}
-
-void Plane::detectCollisions() {
-	collisions = this->distributionSweep();
+	line.setDirection(atoi(line_str.substr(begin, len).c_str()));
+	
+	return line;
 }
 
 // Recursive implementation of quicksort algorithm
-void Plane::quicksort(Line* input, int p, int r) {
+void quicksortY(Line* input, int p, int r) {
 	if ( p < r ) {
-        int j = this->partition(input, p, r);        
-        this->quicksort(input, p, j-1);
-        this->quicksort(input, j+1, r);
+        int j = partitionY(input, p, r);        
+        quicksortY(input, p, j-1);
+        quicksortY(input, j+1, r);
     }
 }
 
-// Function to find the partition in quicksort
-// Addapted to deal with input of list of lines
-int Plane::partition(Line* input, int p, int r) {
-	int pivot = input[r].getY1();
+void quicksortX(Line* input, int p, int r) {
+	if ( p < r ) {
+        int j = partitionX(input, p, r);        
+        quicksortX(input, p, j-1);
+        quicksortX(input, j+1, r);
+    }
+}
+
+int partitionY(Line* input, int p, int r) {
+	int pivot = input[r].getP1()->getY();
 
     while ( p < r ) {
-        while ( input[p].getY1() < pivot ) {
+        while ( input[p].getP1()->getY() < pivot ) {
             p++;
     	}
-        while ( input[r].getY1() > pivot ) {
+        while ( input[r].getP1()->getY() > pivot ) {
             r--;
         }
-        if ( input[p].getY1() == input[r].getY1() ) {
+        if ( input[p].getP1()->getY() == input[r].getP1()->getY() ) {
             p++;
         } else if ( p < r ) {
             Line tmp = input[p];
@@ -257,11 +256,100 @@ int Plane::partition(Line* input, int p, int r) {
     return r;
 }
 
+int partitionX(Line* input, int p, int r) {
+	int pivot = input[r].getP1()->getX();
 
-int main() {
-	string file = "data/input/test_data0";
-	Plane plane = Plane(file);
-	plane.sortLinesY();
+    while ( p < r ) {
+        while ( input[p].getP1()->getX() < pivot ) {
+            p++;
+    	}
+        while ( input[r].getP1()->getX() > pivot ) {
+            r--;
+        }
+        if ( input[p].getP1()->getX() == input[r].getP1()->getX() ) {
+            p++;
+        } else if ( p < r ) {
+            Line tmp = input[p];
+            input[p] = input[r];
+            input[r] = tmp;
+        }
+    }
+
+    return r;
+}
+
+void distributionSweep(Line* lines, int* overflowLines, int numLines, int numOverflowLines, vector<Collision> * collisions, int basecase, int previousSize) {
+	// Problem is small enough, solve it
+	if (numLines <= basecase || numLines == previousSize) {
+		// Sort in Y then look for collisions
+		sort(lines, lines + numLines, yComparison);
+		vector<Line> activeLines;
+		for (int i = 0; i < numLines; i++) {
+			Line currentLine = lines[i];
+			vector<Line> activeHolder = activeLines;
+			activeLines.clear();
+
+			for (vector<Line>::iterator it = activeHolder.begin(); it != activeHolder.end(); it++) {
+				if (currentLine.intersect(*it)) {
+					collisions->push_back(Collision(currentLine, *it));
+					activeLines.push_back(*it);
+				} else {
+					// Check to see if active line should still be active
+					if ((*it).getP2()->getY() >= currentLine.getP1()->getY()) {
+						activeLines.push_back(*it);
+					}
+				}
+			}
+
+			// IF line is vertical add to active lines
+			if (currentLine.getDir()) {
+				activeLines.push_back(currentLine);
+			}
+		}
+
+
+	} else {
+		int median = lines[(numLines/2) - (numOverflowLines/2)].getP1()->getX();
+		int numLeftLines = numLines/2 + numOverflowLines/2;
+
+		// Check for lines that need to go to overflow lines
+		int *leftOverflows = (int*) malloc((numLeftLines/4) * sizeof(int));
+		//for (int i=0; i < numLeftLines; i++)
+
+		distributionSweep(lines, NULL, numLeftLines, 0, collisions, basecase, numLines);
+		distributionSweep(lines + numLeftLines, leftOverflows, numLines - numLeftLines, 0, collisions, basecase, numLines);
+		return;
+	}
+}
+
+
+int main(int argc, char* argv[]) {
+	string file = argv[1];
+	int basecase = atoi(argv[2]);
+	ifstream input;
+  	string line_str;
+  	int input_size;
+  	vector<Line> lines;
+
+  	// Read in lines
+  	input.open(file.c_str());
+  	if (input.is_open()) {
+    	getline(input, line_str);
+    	input_size = atoi(line_str.c_str());
+    	for (int i = 0; i < input_size; i ++) {
+      		getline(input, line_str);
+      		lines.push_back(parseLine(line_str));
+    	}
+    	input.close();
+   	}
+
+   	// Find collisions in lines
+   	sort(lines.begin(), lines.end(), xComparison);
+   	Line *lines_a = &lines[0];
+   	vector<Collision> collisions;
+   	distributionSweep(lines_a, NULL, input_size, 0, &collisions, basecase, -1);
+   	cout << collisions.size();
+
 	return 1;
 }
 

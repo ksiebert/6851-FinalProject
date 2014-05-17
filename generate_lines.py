@@ -8,7 +8,7 @@ def create_graphs():
   pass
 
 def generate_random_data(file_name, size, min_length, max_length, window):
-  f = open(file_name, 'w')
+  f = open(file_name, 'w+')
   print >> f, size
   for i in range(size):
     length = (int)(random.random() * (max_length - min_length) + min_length)
