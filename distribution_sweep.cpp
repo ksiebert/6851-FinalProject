@@ -15,7 +15,7 @@ class Point {
 	public:
 		Point(int x, int y);
 		Point();
-		void toString();
+		string toString();
 		int getY();
 		int getX();
 };
@@ -27,7 +27,7 @@ class Line {
 	public:
 		Line(Point p1, Point p2);
 		Line();
-		void toString();
+		const char * toString();
 		void setDirection(int dir);
 		Point* getP1();
 		Point* getP2();
@@ -40,19 +40,21 @@ class Collision {
   	Line *l2;
 
   	public:
-   		Collision(Line l1, Line l2);
+   		Collision(Line * l1, Line * l2);
    		Collision();
+   		void write(ofstream * myfile);
 };
 
 
 
-
+string output_path_from_input_path(string input_path);
+string collision_path_from_input_path(string input_path);
 Line parseLine(string line_str);
 void quicksortX(Line* input, int p, int r);
 int partitionX(Line* input, int p, int r);
 void quicksortY(Line* input, int p, int r);
 int partitionY(Line* input, int p, int r);
-void distributionSweep(vector<Line*> lines, vector<Collision> * collisions, int basecase, int previousSize);
+void distributionSweep(vector<Line*> lines, vector<Line> overflowLines, int numLines, int numOverflowLines, vector<Collision> * collisions, int basecase, int previousSize);
 bool xComparison(Line l1, Line l2);
 bool yComparison(Line l1, Line l2);
 
@@ -89,8 +91,18 @@ int Point::getX() {
 }
 
 
-void Point::toString() {
-	cout << "(" << this->x << ", " << this->y << ")";
+string Point::toString() {
+	stringstream ss;
+    string r = "";
+    r += "(";
+    ss << this->x;
+    r += ss.str();
+    r += ",";
+    stringstream sss;
+    sss << this->y;
+    r += sss.str();
+    r += ")";
+    return r;
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -120,12 +132,10 @@ void Line::setDirection(int dir) {
 	this->dir = dir;
 }
 
-void Line::toString() {
-	cout << "{";
-	this->p1.toString();
-	cout << ", ";
-	this->p2.toString();
-	cout << "}\n";
+const char * Line::toString() {
+	string r = this->p1.toString();
+  	r += this->p2.toString();
+  	return r.c_str();
 }
 
 int Line::getDir() {
@@ -169,9 +179,9 @@ bool Line::intersect(Line l) {
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////        Collision Class            /////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////
-Collision::Collision(Line l1, Line l2) {
-  	this->l1 = &l1;
-  	this->l2 = &l2;
+Collision::Collision(Line * l1, Line * l2) {
+  	this->l1 = l1;
+  	this->l2 = l2;
 }
 
 Collision::Collision() {
@@ -179,7 +189,9 @@ Collision::Collision() {
 	this->l2 = NULL;
 }
 
-
+void Collision::write(ofstream * myfile) {
+  (*myfile) << "Collision: " << this->l1->toString() << " " << this->l2->toString() << '\n';
+}
 
 
 // Parses out line information from input file
@@ -278,32 +290,32 @@ int partitionX(Line* input, int p, int r) {
     return r;
 }
 
-void distributionSweep(Line* lines, int* overflowLines, int numLines, int numOverflowLines, vector<Collision> * collisions, int basecase, int previousSize) {
+void distributionSweep(Line* lines, vector<Line> overflowLines, int numLines, int numOverflowLines, vector<Collision> * collisions, int basecase, int previousSize) {
 	// Problem is small enough, solve it
 	if (numLines <= basecase || numLines == previousSize) {
 		// Sort in Y then look for collisions
-		sort(lines, lines + numLines, yComparison);
+
+		overflowLines.insert(overflowLines.end(),lines, lines+numLines);
+		sort(overflowLines.begin(), overflowLines.end(), yComparison);
 		vector<Line> activeLines;
-		for (int i = 0; i < numLines; i++) {
-			Line currentLine = lines[i];
+		for (vector<Line>::iterator line = overflowLines.begin(); line != overflowLines.end(); line++) {
 			vector<Line> activeHolder = activeLines;
 			activeLines.clear();
-
 			for (vector<Line>::iterator it = activeHolder.begin(); it != activeHolder.end(); it++) {
-				if (currentLine.intersect(*it)) {
-					collisions->push_back(Collision(currentLine, *it));
+				if ((*line).intersect(*it)) {
+					collisions->push_back(Collision(&(*line), &(*it)));
 					activeLines.push_back(*it);
 				} else {
 					// Check to see if active line should still be active
-					if ((*it).getP2()->getY() >= currentLine.getP1()->getY()) {
+					if ((*it).getP2()->getY() >= (*line).getP1()->getY()) {
 						activeLines.push_back(*it);
 					}
 				}
 			}
 
 			// IF line is vertical add to active lines
-			if (currentLine.getDir()) {
-				activeLines.push_back(currentLine);
+			if ((*line).getDir()) {
+				activeLines.push_back(*line);
 			}
 		}
 
@@ -312,14 +324,33 @@ void distributionSweep(Line* lines, int* overflowLines, int numLines, int numOve
 		int median = lines[(numLines/2) - (numOverflowLines/2)].getP1()->getX();
 		int numLeftLines = numLines/2 + numOverflowLines/2;
 
-		// Check for lines that need to go to overflow lines
-		int *leftOverflows = (int*) malloc((numLeftLines/4) * sizeof(int));
-		//for (int i=0; i < numLeftLines; i++)
+		// Check for lines that start left of median and end to the right of it
+		vector<Line> rightOverflowLines;
+		for (int i = 0; i < numLines/2; i++) {
+			if (lines[i].getP2()->getX() > median) {
+				rightOverflowLines.push_back(lines[i]);
+			}
+		}
 
-		distributionSweep(lines, NULL, numLeftLines, 0, collisions, basecase, numLines);
-		distributionSweep(lines + numLeftLines, leftOverflows, numLines - numLeftLines, 0, collisions, basecase, numLines);
+		for (vector<Line>::iterator it = overflowLines.begin(); it != overflowLines.end(); it++) {
+			if ((*it).getP2()->getX() > median) {
+				rightOverflowLines.push_back(*it);
+			}
+		}
+		
+
+		distributionSweep(lines, overflowLines, numLeftLines, numOverflowLines, collisions, basecase, numLines);
+		distributionSweep(lines + numLeftLines, rightOverflowLines, numLines - numLeftLines, rightOverflowLines.size(), collisions, basecase, numLines);
 		return;
 	}
+}
+
+string output_path_from_input_path(string input_path) {
+  	return "data/output/ds_" + input_path.substr(input_path.find_last_of("/") + 1, string::npos);
+}
+
+string collisions_path_from_input_path(string input_path) {
+  	return "data/collisions/ds_" + input_path.substr(input_path.find_last_of("/") + 1, string::npos);
 }
 
 
@@ -344,12 +375,29 @@ int main(int argc, char* argv[]) {
    	}
 
    	// Find collisions in lines
+   	clock_t start;
+  	double duration;  
+  	start = clock();       
    	sort(lines.begin(), lines.end(), xComparison);
    	Line *lines_a = &lines[0];
    	vector<Collision> collisions;
-   	distributionSweep(lines_a, NULL, input_size, 0, &collisions, basecase, -1);
-   	cout << collisions.size();
+   	vector<Line> overflow;
+   	distributionSweep(lines_a, overflow, input_size, 0, &collisions, basecase, -1);
+   	duration = (clock() - start ) / (double) CLOCKS_PER_SEC;
+   	
+   	// Write to output
+   	// 	ofstream myfile;
+  	// myfile.open (collisions_path_from_input_path(file));
+  	// vector<Collision>::iterator it;
+  	// for (it = collisions.begin(); it != collisions.end(); it++) {
+   	// 		it->write(&myfile);
+  	// }
+  	// myfile.close();
 
+  	ofstream myfile2;
+  	myfile2.open (output_path_from_input_path(file));
+  	myfile2 <<"ds," << input_size << "," << collisions.size() << "," << duration;
+  	myfile2.close();
 	return 1;
 }
 
