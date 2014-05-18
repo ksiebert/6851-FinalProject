@@ -303,6 +303,10 @@ void distributionSweep(Line* lines, vector<Line> overflowLines, int numLines, in
 			activeLines.clear();
 			for (vector<Line>::iterator it = activeHolder.begin(); it != activeHolder.end(); it++) {
 				if ((*line).intersect(*it)) {
+					// cout << "COLLISION: ";
+					// cout << (*line).toString();
+					// cout << (*it).toString();
+					// cout << "\n";
 					collisions->push_back(Collision(&(*line), &(*it)));
 					activeLines.push_back(*it);
 				} else {
@@ -321,12 +325,16 @@ void distributionSweep(Line* lines, vector<Line> overflowLines, int numLines, in
 
 
 	} else {
-		int median = lines[(numLines/2) - (numOverflowLines/2)].getP1()->getX();
-		int numLeftLines = numLines/2 + numOverflowLines/2;
+		int median_index = (numLines/2) - (numOverflowLines/2);
+		if (median_index < 0) {
+			median_index = 0;
+		}
+		int median = lines[median_index].getP1()->getX();
+		int numRightLines = numLines - median_index;
 
 		// Check for lines that start left of median and end to the right of it
 		vector<Line> rightOverflowLines;
-		for (int i = 0; i < numLines/2; i++) {
+		for (int i = 0; i < median_index; i++) {
 			if (lines[i].getP2()->getX() > median) {
 				rightOverflowLines.push_back(lines[i]);
 			}
@@ -339,8 +347,8 @@ void distributionSweep(Line* lines, vector<Line> overflowLines, int numLines, in
 		}
 		
 
-		distributionSweep(lines, overflowLines, numLeftLines, numOverflowLines, collisions, basecase, numLines);
-		distributionSweep(lines + numLeftLines, rightOverflowLines, numLines - numLeftLines, rightOverflowLines.size(), collisions, basecase, numLines);
+		distributionSweep(lines, overflowLines, median_index, numOverflowLines, collisions, basecase, numLines);
+		distributionSweep(lines + median_index, rightOverflowLines, numRightLines, rightOverflowLines.size(), collisions, basecase, numLines);
 		return;
 	}
 }
@@ -356,7 +364,7 @@ string collisions_path_from_input_path(string input_path) {
 
 int main(int argc, char* argv[]) {
 	string file = argv[1];
-	int basecase = atoi(argv[2]);
+	int basecase = 256;
 	ifstream input;
   	string line_str;
   	int input_size;
