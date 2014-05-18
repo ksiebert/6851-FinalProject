@@ -61,6 +61,7 @@ Line::Line() {
   this->p0 = Point();
   this->p1 = Point();
 }
+
 // Does the number x fall in the range for which this line varies
 bool Line::in_range(int x) {
   if (this->dir) {
@@ -69,6 +70,7 @@ bool Line::in_range(int x) {
     return x >= this->p0.x && x <= this->p1.x;
   }
 }
+
 // Does this line intersect line l
 bool Line::intersects(Line l) {
   if (this->dir && l.dir) {
@@ -276,6 +278,7 @@ void TreeNode::create_children(int granularity) {
         unclassified_lines.push_back(l);
       }
     }
+
     if (this->lines.size() != unclassified_lines.size()) {
       this->has_children = true;
     }
