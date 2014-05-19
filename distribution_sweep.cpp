@@ -364,7 +364,7 @@ string collisions_path_from_input_path(string input_path) {
 
 int main(int argc, char* argv[]) {
 	string file = argv[1];
-	int basecase = 256;
+	int basecase = atoi(argv[2]);
 	ifstream input;
   	string line_str;
   	int input_size;
